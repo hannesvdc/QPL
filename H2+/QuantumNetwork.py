@@ -1,0 +1,57 @@
+import torch as pt
+import torch.nn as nn
+
+from typing import List
+
+from MLP import MultiLayerPerceptron
+
+
+class QuantumNetwork( nn.Module ):
+    """
+    The main trainable neural network to solve the Schrodinger equation
+    for the (unnormalized) wave function $\psi(r)$.
+    """
+
+    def __init__( self, 
+                  neurons_per_layer : List[int],
+                  r_cutoff : float,
+                  include_alpha : bool = False ) -> None:
+        super().__init__()
+
+        if neurons_per_layer[-1] != 1:
+            raise ValueError("QuantumNetwork output dimension should be 1.")
+
+        self.r_cutoff = r_cutoff
+        self.mlp = MultiLayerPerceptron( neurons_per_layer, nn.GELU, init_zero=False )
+        if include_alpha:
+            self.raw_alpha = nn.Parameter(pt.tensor(0.9))
+        else:
+            self.raw_alpha = pt.tensor(0.0)
+
+    def forward(self, R : pt.Tensor,
+                      xyz : pt.Tensor ) -> pt.Tensor:
+        assert xyz.ndim == 2 and xyz.shape[1] == 3, f"`xyz` must have shape (B, 3) but got {xyz.shape}"
+        N = xyz.shape[0]
+        R = R.flatten()
+        B = len( R )
+
+        # Repmat and put all in one big tensor of shape (B, N, 4)
+        xyz = xyz[None,:,:].expand(B,N,3) #* pt.ones( (B, 1, 1), device=R.device, dtype=R.dtype )
+        log_R = pt.log(R)[:,None,None].expand(B, N, 1)   
+        mlp_input = pt.cat( (xyz, log_R), dim=2 )
+
+        mlp_output = self.mlp( mlp_input ) # shape (B, N, 1)
+        mlp_output = pt.squeeze( mlp_output, -1 )
+
+        P1 = pt.stack((-R, pt.zeros_like(R), pt.zeros_like(R)), dim=-1)[:, None, :] # (B, 1, 3)
+        P2 = pt.stack(( R, pt.zeros_like(R), pt.zeros_like(R)), dim=-1)[:, None, :]
+        r1 = pt.linalg.norm(xyz - P1, dim=2).clamp_min( 1e-8 )
+        r2 = pt.linalg.norm(xyz - P2, dim=2).clamp_min( 1e-8 ) # (B,N)
+        alpha = 2.0 * pt.sigmoid( self.raw_alpha )
+        envelope = pt.exp( -alpha * r1 ) + pt.exp( -alpha *r2 )
+
+        r_sq = pt.sum( xyz * xyz, dim=2 ) # (B, N)
+        dirichlet_gate = 1.0 - r_sq / self.r_cutoff**2
+        psi = dirichlet_gate * envelope * mlp_output # (B, N)
+
+        return psi
