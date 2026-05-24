@@ -2,8 +2,6 @@ import math
 import torch as pt
 import torch.nn as nn
 
-from typing import Tuple, Dict
-
 class QuantumLoss( nn.Module ):
     """
     Rayleigh-energy loss for the Schrodinger equation

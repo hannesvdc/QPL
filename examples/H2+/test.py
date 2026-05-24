@@ -1,3 +1,7 @@
+import os
+from dotenv import load_dotenv
+from pathlib import Path
+
 import math
 import numpy as np
 import torch as pt
@@ -8,11 +12,13 @@ from QuantumLoss import QuantumLoss
 
 from sampleBatch import sampleBatch
 
+load_dotenv()
+store_directory = Path( os.getenv( "RESULTS_DIR", "./Results" ) ) / "H2+"
+device_str = os.getenv( "DEVICE", "cpu" )
+
 # ============================================================
 # Config
 # ============================================================
-
-
 r_cutoff = 5.0
 
 # Wavefunction slice plot
@@ -30,14 +36,14 @@ def load_model( ) -> QuantumNetwork:
     z = 64
     neurons_per_layer = [ 4, z, z, z, z, 1]
     model = QuantumNetwork( neurons_per_layer, r_cutoff, include_alpha=True)
-    model.load_state_dict( pt.load('./Results/alpha_best_model.pth') )
+    model.load_state_dict( pt.load( store_directory  / 'alpha_best_model.pth') )
     return model
 
 def plot_training_convergence():
-    train_data = np.load( './Results/train_data.npy' )
+    train_data = np.load( store_directory / 'train_data.npy' )
     train_counter = train_data[:,0]
     train_losses = train_data[:,1]
-    val_data = np.load( './Results/validation_data.npy' )
+    val_data = np.load( store_directory / 'validation_data.npy' )
     validation_counter = val_data[:,0]
     validation_losses = val_data[:,1]
     

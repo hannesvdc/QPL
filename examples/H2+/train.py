@@ -1,3 +1,7 @@
+import os
+from dotenv import load_dotenv
+from pathlib import Path
+
 import math
 import numpy as np
 import torch as pt
@@ -13,6 +17,10 @@ from sampleBatch import sampleBatch
 
 from typing import List
 
+load_dotenv()
+store_directory = Path( os.getenv( "RESULTS_DIR", "./Results" ) ) / "H2+"
+device_str = os.getenv( "DEVICE", "cpu" )
+
 parser = argparse.ArgumentParser()
 parser.add_argument('--name', nargs='?', dest='name', required=True)
 args = parser.parse_args()
@@ -21,7 +29,7 @@ name = args.name
 # Do everything on the CPU in double precision.
 dtype = pt.float64
 pt.set_default_dtype( dtype )
-pt.set_default_device( 'cpu' )
+pt.set_default_device( device_str )
 
 gen = pt.Generator()
 
@@ -112,7 +120,6 @@ def validate_epoch( epoch : int ) -> float:
     return loss
 
 # Main training loop
-store_directory = './Results/'
 n_epochs = step_size * n_steps
 best_val_loss = math.inf
 try:
@@ -126,12 +133,12 @@ try:
         scheduler.step( )
 
         # Store the current model and optimizer weights.
-        pt.save( model.state_dict(), store_directory + f"{name}_model_adam.pth")
-        pt.save( optimizer.state_dict(), store_directory + f"{name}_optimizer_adam.pth")
+        pt.save( model.state_dict(), store_directory / f"{name}_model_adam.pth")
+        pt.save( optimizer.state_dict(), store_directory / f"{name}_optimizer_adam.pth")
         if val_loss < best_val_loss:
             best_val_loss = val_loss
             print("Storing the best model.")
-            pt.save( model.state_dict(), store_directory + f"{name}_best_model.pth")
+            pt.save( model.state_dict(), store_directory / f"{name}_best_model.pth")
 except KeyboardInterrupt:
     print( 'Aborting Training.')
     pass
@@ -144,8 +151,8 @@ train_data = np.stack( (train_counter[:,np.newaxis], train_losses[:,np.newaxis],
 validation_counter = np.array( validation_counter ) # type: ignore
 validation_losses = np.array( validation_losses ) # type: ignore
 validation_data = np.stack( (validation_counter[:,np.newaxis], validation_losses[:,np.newaxis]), axis=1) # type: ignore
-np.save( store_directory + f"{name}_train_data.npy", train_data)
-np.save( store_directory + f"{name}_validation_data.npy", validation_data)
+np.save( store_directory / f"{name}_train_data.npy", train_data)
+np.save( store_directory / f"{name}_validation_data.npy", validation_data)
 
 # Make a plot of the training progress
 fig = plt.figure()

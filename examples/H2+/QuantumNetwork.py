@@ -3,7 +3,7 @@ import torch.nn as nn
 
 from typing import List
 
-from MLP import MultiLayerPerceptron
+from qlp.MLP import MultiLayerPerceptron
 
 
 class QuantumNetwork( nn.Module ):
