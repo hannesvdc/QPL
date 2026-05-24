@@ -1,0 +1,31 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "qpl"
+description = "Exploring physics-informed learning for calculating ground-state energies of quantum systems."
+readme = { file = "README.md", content-type = "text/markdown" }
+license = { file = "LICENSE" }
+authors = [
+    { name="Hannes Vandecasteele", email="hannesvdc@gmail.com" }
+]
+requires-python = ">=3.13"
+dependencies = [
+    "numpy",
+    "torch",
+    "matplotlib"
+]
+dynamic = ["version"]
+
+
+[project.urls]
+Homepage = "https://github.com/hannesvdc/QPL"
+Documentation = "https://github.com/hannesvdc/QPL"
+Source = "https://github.com/hannesvdc/QPL"
+
+[tool.setuptools.package-dir]
+"" = "src"
+
+[tool.setuptools.packages.find]
+where = ["src"]
