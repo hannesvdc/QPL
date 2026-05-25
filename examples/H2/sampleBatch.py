@@ -9,9 +9,11 @@ def sampleElectrons( N : int, gen : pt.Generator, device : pt.device, dtype : pt
     sigma_x = 2.0
     sigma_y = 1.0
     sigma_z = 1.0
-    x = pt.normal( pt.zeros((N,)), sigma_x*pt.ones((N,)), generator=gen ).to(device=device, dtype=dtype)
-    y = pt.normal( pt.zeros((N,)), sigma_y*pt.ones((N,)), generator=gen ).to(device=device, dtype=dtype)
-    z = pt.normal( pt.zeros((N,)), sigma_z*pt.ones((N,)), generator=gen ).to(device=device, dtype=dtype)
+    mean = pt.zeros( (N,), device=device, dtype=dtype)
+    stdev = pt.ones( (N,), device=device, dtype=dtype)
+    x = pt.normal( mean, sigma_x*stdev, generator=gen )
+    y = pt.normal( mean, sigma_y*stdev, generator=gen )
+    z = pt.normal( mean, sigma_z*stdev, generator=gen )
     xyz = pt.stack( (x,y,z), dim=1 )
 
     # symmetrize particles

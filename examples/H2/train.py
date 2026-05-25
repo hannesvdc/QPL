@@ -21,6 +21,7 @@ load_dotenv()
 store_directory = Path( os.getenv( "RESULTS_DIR", "./Results" ) ) / "H2"
 store_directory.mkdir( parents=True, exist_ok=True )
 device_str = os.getenv( "DEVICE", "cpu" )
+print( f'Training on {device_str}.')
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--name', nargs='?', dest='name', required=True)
@@ -30,10 +31,7 @@ name = args.name
 # Do everything on the CPU in double precision.
 dtype = pt.float32
 device = pt.device( device_str )
-pt.set_default_dtype( dtype )
-pt.set_default_device( device )
-
-gen = pt.Generator()
+gen = pt.Generator( device=device )
 
 # Create a training and validation dataset
 B = 256
@@ -99,7 +97,7 @@ def train_epoch( epoch : int ):
     print(print_str)
 
 # Validation function
-val_R = pt.tensor( [0.70055], dtype=dtype )
+val_R = pt.tensor( [0.70055], dtype=dtype, device=device )
 _, val_r1, val_r2, val_mc_weights = sampleBatch( B_val, N_validation, R_cutoff, gen, device, dtype )
 validation_counter : List = []
 validation_losses : List = []
