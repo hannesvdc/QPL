@@ -4,14 +4,14 @@ import torch as pt
 from typing import Tuple
 
 @pt.no_grad()
-def sampleElectrons( N : int, gen : pt.Generator ) -> tuple[pt.Tensor, pt.Tensor]:
+def sampleElectrons( N : int, gen : pt.Generator, device : pt.device, dtype : pt.dtype ) -> tuple[pt.Tensor, pt.Tensor]:
     # Sample (x,y,z) normal with a wider variance on the x-axis. 
     sigma_x = 2.0
     sigma_y = 1.0
     sigma_z = 1.0
-    x = pt.normal( pt.zeros((N,)), sigma_x*pt.ones((N,)), generator=gen )
-    y = pt.normal( pt.zeros((N,)), sigma_y*pt.ones((N,)), generator=gen )
-    z = pt.normal( pt.zeros((N,)), sigma_z*pt.ones((N,)), generator=gen )
+    x = pt.normal( pt.zeros((N,)), sigma_x*pt.ones((N,)), generator=gen ).to(device=device, dtype=dtype)
+    y = pt.normal( pt.zeros((N,)), sigma_y*pt.ones((N,)), generator=gen ).to(device=device, dtype=dtype)
+    z = pt.normal( pt.zeros((N,)), sigma_z*pt.ones((N,)), generator=gen ).to(device=device, dtype=dtype)
     xyz = pt.stack( (x,y,z), dim=1 )
 
     # symmetrize particles
@@ -49,16 +49,18 @@ def jointRejection( r1 : pt.Tensor,
 def sampleBatch( B : int, 
                  N : int, 
                  R_cutoff : float, 
-                 gen : pt.Generator 
+                 gen : pt.Generator,
+                 device : pt.device,
+                 dtype : pt.dtype,
                 ) -> Tuple[pt.Tensor, pt.Tensor, pt.Tensor, pt.Tensor]:
     log_R_min = math.log( 0.1 )
     log_R_max = math.log( 2.0 )
-    log_R = log_R_min + (log_R_max - log_R_min) * pt.rand( (B,1), generator=gen )
+    log_R = log_R_min + (log_R_max - log_R_min) * pt.rand( (B,1), generator=gen, device=device, dtype=dtype )
     R = pt.exp( log_R )
 
     # Sample electrons
-    r1, mc1 = sampleElectrons( N, gen )
-    r2, mc2 = sampleElectrons( N, gen )
+    r1, mc1 = sampleElectrons( N, gen, device, dtype )
+    r2, mc2 = sampleElectrons( N, gen, device, dtype )
     r1, r2, mc_weights = jointRejection( r1, r2, mc1, mc2, R_cutoff )
     mc_weights /= mc_weights.mean()
 

@@ -28,9 +28,10 @@ args = parser.parse_args()
 name = args.name
 
 # Do everything on the CPU in double precision.
-dtype = pt.float64
+dtype = pt.float32
+device = pt.device( device_str )
 pt.set_default_dtype( dtype )
-pt.set_default_device( device_str )
+pt.set_default_device( device )
 
 gen = pt.Generator()
 
@@ -45,6 +46,7 @@ R_cutoff = 5.0
 z = 64
 neurons_per_layer = [ 1+6*3, z, z, z, z, 1]
 model = QuantumNetwork( neurons_per_layer, R_cutoff )
+model.to( device=device, dtype=dtype )
 print('Number of Trainable Parameters: ', sum( [ p.numel() for p in model.parameters() if p.requires_grad ]))
 
 # Loss function.
@@ -72,7 +74,7 @@ def train_epoch( epoch : int ):
     optimizer.zero_grad( set_to_none=True )
 
     # Sample new training points every epoch.
-    R, r1, r2, mc_weights = sampleBatch( B, N_train, R_cutoff, gen)
+    R, r1, r2, mc_weights = sampleBatch( B, N_train, R_cutoff, gen, device, dtype )
         
     # Compute the loss (backward is called per-chunk inside loss_fcn)
     loss = loss_fcn( model, R, r1, r2, mc_weights, training=True )
@@ -85,7 +87,7 @@ def train_epoch( epoch : int ):
     # Keep track of important metrics
     train_counter.append( epoch-1)
     train_losses.append( loss )
-    train_grads.append( float(loss_grad.item()) )
+    train_grads.append( float(loss_grad.detach().cpu().item()) )
 
     # Print some diagnostics
     print_str = (
@@ -98,7 +100,7 @@ def train_epoch( epoch : int ):
 
 # Validation function
 val_R = pt.tensor( [0.70055], dtype=dtype )
-_, val_r1, val_r2, val_mc_weights = sampleBatch( B_val, N_validation, R_cutoff, gen )
+_, val_r1, val_r2, val_mc_weights = sampleBatch( B_val, N_validation, R_cutoff, gen, device, dtype )
 validation_counter : List = []
 validation_losses : List = []
 def validate_epoch( epoch : int ) -> float:
