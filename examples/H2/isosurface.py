@@ -275,6 +275,7 @@ def plot_density_slice_2d( density_2d: pt.Tensor,
                            plane: str = "xz",
                            title: str = "One-electron density slice",
                            levels: int = 40,
+                           display : bool = False,
                         ) -> None:
     """
     Plot a 2D density slice.
@@ -307,7 +308,8 @@ def plot_density_slice_2d( density_2d: pt.Tensor,
     plt.title(title)
     plt.axis("equal")
     plt.tight_layout()
-    plt.show()
+    if display:
+        plt.show()
 
 
 def plot_density_isosurface_3d( p_3d: pt.Tensor,
@@ -318,6 +320,7 @@ def plot_density_isosurface_3d( p_3d: pt.Tensor,
                                 R_half: float,
                                 title: str = "One-electron density isosurface",
                                 alpha: float = 0.35,
+                                display : bool = False,
                             ) -> None:
     """
     Plot a 3D density isosurface using marching cubes + matplotlib.
@@ -363,4 +366,5 @@ def plot_density_isosurface_3d( p_3d: pt.Tensor,
 
     ax.set_box_aspect((1, 1, 1))
     plt.tight_layout()
-    plt.show()
+    if display:
+        plt.show()

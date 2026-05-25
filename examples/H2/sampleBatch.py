@@ -29,6 +29,19 @@ def sampleElectrons( N : int, gen : pt.Generator, device : pt.device, dtype : pt
     return xyz, mc_weights
 
 @pt.no_grad()
+def sampleSingleElectron( N : int, R_cutoff : float, gen : pt.Generator, device : pt.device, dtype : pt.dtype ) -> tuple[pt.Tensor, pt.Tensor]:
+    xyz, mc_weights = sampleElectrons( N, gen, device, dtype )
+
+    r_sq = pt.sum( xyz**2, dim=1 )
+    inside_domain = (r_sq <= R_cutoff**2)
+
+    xyz = xyz[inside_domain,:]
+    mc_weights = mc_weights[inside_domain]
+
+    return xyz, mc_weights / mc_weights.mean()
+
+
+@pt.no_grad()
 def jointRejection( r1 : pt.Tensor, 
                     r2 : pt.Tensor, 
                     mc1 : pt.Tensor, 
