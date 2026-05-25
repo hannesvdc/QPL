@@ -9,7 +9,7 @@ from qlp.MLP import MultiLayerPerceptron
 class QuantumNetwork( nn.Module ):
     """
     The main trainable neural network to solve the Schrodinger equation
-    for the (unnormalized) wave function $\psi(r)$.
+    for the (unnormalized) wave function $\\psi(r)$.
     """
 
     def __init__( self, 

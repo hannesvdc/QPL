@@ -9,7 +9,7 @@ from qlp.embedding import DistanceEmbedding
 class QuantumNetwork( nn.Module ):
     """
     The main trainable neural network to solve the Schrodinger equation
-    for the two-electron position-only wave function $\psi(r1, r2)$.
+    for the two-electron position-only wave function $\\psi(r1, r2)$.
     """
 
     def __init__( self, 
