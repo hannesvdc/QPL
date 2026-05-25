@@ -12,13 +12,14 @@ import matplotlib.pyplot as plt
 import argparse
 
 from QuantumNetwork import QuantumNetwork
-from QuantumLoss import QuantumLoss
+from EnergyLoss import EnergyLoss
 from sampleBatch import sampleBatch
 
 from typing import List
 
 load_dotenv()
-store_directory = Path( os.getenv( "RESULTS_DIR", "./Results" ) ) / "H2+"
+store_directory = Path( os.getenv( "RESULTS_DIR", "./Results" ) ) / "H2"
+store_directory.mkdir( parents=True, exist_ok=True )
 device_str = os.getenv( "DEVICE", "cpu" )
 
 parser = argparse.ArgumentParser()
@@ -36,25 +37,25 @@ gen = pt.Generator()
 # Create a training and validation dataset
 B = 256
 N_train = 5000
-B_val = 16
+B_val = 1
 N_validation = 1000
 
 # Setup the network
 R_cutoff = 5.0
 z = 64
-neurons_per_layer = [ 4, z, z, z, z, 1]
-model = QuantumNetwork( neurons_per_layer, R_cutoff)
+neurons_per_layer = [ 1+6*3, z, z, z, z, 1]
+model = QuantumNetwork( neurons_per_layer, R_cutoff )
 print('Number of Trainable Parameters: ', sum( [ p.numel() for p in model.parameters() if p.requires_grad ]))
 
 # Loss function.
 chunk_size = 4
-loss_fcn = QuantumLoss( chunk_size=chunk_size )
+loss_fcn = EnergyLoss( chunk_size=chunk_size )
 
 # Setup the optimizer and learning rate scheduler
 lr = 1e-3
 optimizer = optim.Adam( model.parameters(), lr, amsgrad=True )
 
-# Scheduler: constant for the first `n_epochs` epochs, decrease by cosine for `annealing_epochs` later.
+# Scheduler: simple steps
 step_size = 500
 gamma = 0.1
 n_steps = 5
@@ -71,10 +72,10 @@ def train_epoch( epoch : int ):
     optimizer.zero_grad( set_to_none=True )
 
     # Sample new training points every epoch.
-    R, xyz, mc_weights = sampleBatch( B, N_train, R_cutoff, gen)
+    R, r1, r2, mc_weights = sampleBatch( B, N_train, R_cutoff, gen)
         
     # Compute the loss (backward is called per-chunk inside loss_fcn)
-    loss = loss_fcn( model, R, xyz, mc_weights, training=True )
+    loss = loss_fcn( model, R, r1, r2, mc_weights, training=True )
     loss_grad = getGradientNorm( model )
 
     # Update the weights internally
@@ -96,28 +97,28 @@ def train_epoch( epoch : int ):
     print(print_str)
 
 # Validation function
-val_R = pt.tensor( [1.0], dtype=dtype )
-_, val_xyz, val_mc_weights = sampleBatch( B_val, N_validation, R_cutoff, gen )
+val_R = pt.tensor( [0.70055], dtype=dtype )
+_, val_r1, val_r2, val_mc_weights = sampleBatch( B_val, N_validation, R_cutoff, gen )
 validation_counter : List = []
 validation_losses : List = []
 def validate_epoch( epoch : int ) -> float:
 
     # Compute the loss (no gradients needed for validation)
-    loss = loss_fcn( model, val_R, val_xyz, val_mc_weights, training=False )
+    total_energy = loss_fcn( model, val_R, val_r1, val_r2, val_mc_weights, training=False )
 
     # Log some interesting info
     proton_energy = 1.0 / (2.0 * float(val_R.item()) )
-    total_energy = proton_energy + loss
+    electron_energy = total_energy - proton_energy
 
     # Store
     validation_counter.append( epoch )
-    validation_losses.append( float(loss) )
+    validation_losses.append( float(total_energy) )
 
     # Print and done.
-    print_str = f'\nValidation Epoch {epoch:03d}: \tElectron Energy: {loss:.5e} \tTotal Energy {total_energy:.5e}'
+    print_str = f'\nValidation Epoch {epoch:03d}: \tElectron Energy: {electron_energy:.5e} \tTotal Energy {total_energy:.5e}'
     print(print_str)
 
-    return loss
+    return total_energy
 
 # Main training loop
 n_epochs = step_size * n_steps
@@ -147,10 +148,10 @@ except KeyboardInterrupt:
 train_counter = np.array( train_counter ) # type: ignore
 train_losses = np.array( train_losses ) # type: ignore
 train_grads = np.array( train_grads ) # type: ignore
-train_data = np.stack( (train_counter[:,np.newaxis], train_losses[:,np.newaxis], train_grads[:,np.newaxis]), axis=1) # type: ignore
+train_data = np.stack( (train_counter, train_losses, train_grads), axis=1) # type: ignore
 validation_counter = np.array( validation_counter ) # type: ignore
 validation_losses = np.array( validation_losses ) # type: ignore
-validation_data = np.stack( (validation_counter[:,np.newaxis], validation_losses[:,np.newaxis]), axis=1) # type: ignore
+validation_data = np.stack( (validation_counter, validation_losses), axis=1) # type: ignore
 np.save( store_directory / f"{name}_train_data.npy", train_data)
 np.save( store_directory / f"{name}_validation_data.npy", validation_data)
 
@@ -160,7 +161,7 @@ ax1 = fig.gca()
 ax1.plot(train_counter, train_losses, color="tab:blue", alpha=0.7, label="Train Loss")
 ax1.plot(validation_counter, validation_losses, color="tab:orange", alpha=0.7, label="Validation Loss")
 ax1.set_xlabel("Epoch")
-ax1.set_ylabel("Electron Energy", color="black")
+ax1.set_ylabel("Total Energy", color="black")
 ax1.tick_params(axis="y")
 plt.legend()
 

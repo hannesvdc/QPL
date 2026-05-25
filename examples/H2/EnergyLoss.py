@@ -44,7 +44,7 @@ class EnergyLoss ( pt.nn.Module ):
             P2_c = P2[b:e,:,:]
 
             # Evaluate the network '$\log \psi = NN_theta(R_A, R_B, r1, r2)$
-            u, du_dr1, du_dr2 = self.fcn_and_grads( model, R_c, r1, r2 )
+            u, du_dr1, du_dr2 = self.fcn_and_grads( model, R_c, r1, r2, training )
 
             # Compute all distances
             r1_ext = r1[None,:,:] # (1, N, 3)
@@ -71,7 +71,7 @@ class EnergyLoss ( pt.nn.Module ):
 
             # Convert energy to loss and calculate its gradients
             chunk_loss = energy.sum() / B
-            total_loss += float( energy.sum() )
+            total_loss += float( energy.sum().detach().cpu() )
             if training:
                 chunk_loss.backward()
 
@@ -84,6 +84,7 @@ class EnergyLoss ( pt.nn.Module ):
                        R : pt.Tensor, # (B,)
                        r1 : pt.Tensor, # (N, 3)
                        r2 : pt.Tensor, # (N, 3)
+                       training : bool,
                     ) -> tuple[pt.Tensor, pt.Tensor, pt.Tensor]:
         """
         Evaluates the PINN and its gradients with respect to electron positions.
@@ -119,9 +120,9 @@ class EnergyLoss ( pt.nn.Module ):
         du_dr2 = []
         for b in range( B ):
             grad_r1_b = pt.autograd.grad( outputs=u[b].sum(), inputs=r1, 
-                                         create_graph=True, retain_graph=True )[0]
+                                         create_graph=training, retain_graph=True )[0]
             grad_r2_b = pt.autograd.grad( outputs=u[b].sum(), inputs=r2, 
-                                         create_graph=True, retain_graph=True )[0]
+                                         create_graph=training, retain_graph=True )[0]
             du_dr1.append( grad_r1_b )
             du_dr2.append( grad_r2_b )
         
