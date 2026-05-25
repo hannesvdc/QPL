@@ -36,9 +36,9 @@ gen = pt.Generator()
 
 # Create a training and validation dataset
 B = 256
-N_train = 5000
+N_train = 10_000
 B_val = 1
-N_validation = 1000
+N_validation = 100_000
 
 # Setup the network
 R_cutoff = 5.0
@@ -123,6 +123,7 @@ def validate_epoch( epoch : int ) -> float:
 # Main training loop
 n_epochs = step_size * n_steps
 best_val_loss = math.inf
+print( validate_epoch( 0 ) )
 try:
     for epoch in range( 1, n_epochs+1 ):
         # Train using the new dataset
