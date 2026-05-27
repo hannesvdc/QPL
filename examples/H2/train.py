@@ -31,7 +31,7 @@ name = args.name
 # Do everything on the CPU in double precision.
 dtype = pt.float64
 device = pt.device( device_str )
-gen = pt.Generator( device=device )
+gen = pt.Generator( device='cpu' )
 
 # Create a training and validation dataset
 B = 256

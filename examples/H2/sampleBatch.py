@@ -66,15 +66,15 @@ def sample_uniform_ball( N: int,
                          device: pt.device, 
                          dtype: pt.dtype,
                         ) -> tuple[pt.Tensor, pt.Tensor]:
-    x = pt.randn((N, 3), generator=gen, device=device, dtype=dtype)
+    x = pt.randn((N, 3), generator=gen)
     x = x / pt.linalg.norm(x, dim=1, keepdim=True).clamp_min(1e-300)
-    u = pt.rand((N, 1), generator=gen, device=device, dtype=dtype)
+    u = pt.rand((N, 1), generator=gen, )
 
     r = R_cutoff * u.pow(1.0 / 3.0)
     pts = r * x
-    weights = pt.ones( (N,), device=device, dtype=dtype)
+    weights = pt.ones( (N,) )
 
-    return pts, weights
+    return pts.to(device=device,dtype=dtype), weights.to(device=device,dtype=dtype)
 
 @pt.no_grad()
 def sampleBatch( B : int, 
@@ -107,8 +107,8 @@ def sampleBatchUniformBall( B: int,
                         ) -> tuple[pt.Tensor, pt.Tensor, pt.Tensor, pt.Tensor]:
     log_R_min = math.log(0.1)
     log_R_max = math.log(2.0)
-    log_R = log_R_min + (log_R_max - log_R_min) * pt.rand( (B, 1), generator=gen, device=device, dtype=dtype )
-    R = pt.exp(log_R).to(device)
+    log_R = log_R_min + (log_R_max - log_R_min) * pt.rand( (B, 1), generator=gen )
+    R = pt.exp(log_R).to(device=device, dtype=dtype)
 
     r1, _ = sample_uniform_ball(N, R_cutoff, gen, device, dtype)
     r2, _ = sample_uniform_ball(N, R_cutoff, gen, device, dtype)
