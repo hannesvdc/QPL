@@ -10,7 +10,7 @@ import matplotlib.pyplot as plt
 from QuantumNetwork import QuantumNetwork
 from EnergyLoss import EnergyLoss
 
-from sampleBatch import sampleBatch, sampleSingleElectron
+from sampleBatch import sampleBatchUniformBall, sampleSingleElectron, sample_uniform_ball
 
 from isosurface import (make_2d_slice_grid, 
                         make_3d_grid, 
@@ -31,48 +31,47 @@ device_str = os.getenv( "DEVICE", "cpu" )
 r_cutoff = 5.0
 
 # Wavefunction slice plot
-R_slice = 1.0
+R_slice = 0.070055
 x_min = -5.0
 x_max = 5.0
-n_x = 100000
+n_x = 100_000
 
 # Energy curve
 R_min = 0.1
 R_max = 2.5
 n_R = 100
 
-def load_model( dtype : pt.dtype = pt.float32 ) -> QuantumNetwork:
+def load_model( name : str, device : pt.device, dtype : pt.dtype = pt.float64 ) -> QuantumNetwork:
     z = 64
     neurons_per_layer = [ 19, z, z, z, z, 1]
     model = QuantumNetwork( neurons_per_layer, r_cutoff )
-    model.load_state_dict( pt.load( store_directory  / 'best_model.pth', weights_only=True ) )
-    model.to( dtype=dtype )
+    model.load_state_dict( pt.load( store_directory  / f'{name}_best_model.pth', weights_only=True, map_location=device ) )
+    model = model.to( device=device, dtype=dtype )
     return model
 
-def plot_training_convergence():
-    train_data = np.load( store_directory / 'train_data.npy' )
+def plot_training_convergence( name : str, display : bool = True ):
+    train_data = np.load( store_directory / f'{name}_train_data.npy' )
     train_counter = train_data[:,0]
     train_losses = train_data[:,1]
-    val_data = np.load( store_directory / 'validation_data.npy' )
+    val_data = np.load( store_directory / f'{name}_validation_data.npy' )
     validation_counter = val_data[:,0]
     validation_losses = val_data[:,1]
     
     plt.plot( train_counter, train_losses, alpha=0.7, label='Training Loss')
-    plt.plot( validation_counter, validation_losses, alpha=0.7, label=r'Validation Loss ($R = 1$)')
-    plt.axhline(-1.1030, 0, np.max(train_counter), linestyle='--', alpha=0.7, label=r'Hartree Minimum Energy at $R=1$')
+    plt.plot( validation_counter, validation_losses, alpha=0.7, label=r'Validation Loss ($R = 0.70055$)')
+    plt.axhline(-1.17, 0, np.max(train_counter), linestyle='--', alpha=0.7, label=r'Hartree Minimum Energy at $R=0.70055$')
     plt.xlabel( 'Epoch' )
     plt.ylabel( 'Loss' )
     plt.legend()
-    plt.show()
-
+    plt.show( block=display )
 
 
 # ---------------------------------------------------------------------
 # Energy curve plotting
 # ---------------------------------------------------------------------
 def plot_energy_curve_with_loss(
-    model,
-    loss_fn,
+    model : pt.nn.Module,
+    loss_fn : pt.nn.Module,
     r1_val: pt.Tensor,
     r2_val: pt.Tensor,
     mc_weights_val: pt.Tensor,
@@ -92,15 +91,16 @@ def plot_energy_curve_with_loss(
         Do NOT wrap this in torch.no_grad(), because the loss needs
         autograd to compute grad_x psi for the kinetic term.
     """
+    dtype = r1_val.dtype
     if logspace:
-        R_values = pt.exp( pt.linspace( math.log(R_min), math.log(R_max), n_R, ) )
+        R_values = pt.exp( pt.linspace( math.log(R_min), math.log(R_max), n_R, dtype=dtype) )
     else:
-        R_values = pt.linspace(R_min, R_max, n_R)
+        R_values = pt.linspace(R_min, R_max, n_R, dtype=dtype )
 
     E_elec = []
     for idx in range(len(R_values)):
-        R = R_values[idx]
-        en_total = loss_fn( model, pt.tensor([R]), r1_val, r2_val, mc_weights_val, training=False )  # (n_R,)
+        R = pt.tensor( [R_values[idx]], dtype=dtype )
+        en_total = loss_fn( model, R, r1_val, r2_val, mc_weights_val, training=False )  # (n_R,)
         en = en_total - 1.0 / (2.0 * R)
         E_elec.append( float(en) )
     E_elec = pt.tensor( E_elec )
@@ -119,30 +119,43 @@ def plot_energy_curve_with_loss(
     plt.figure(figsize=(8, 5))
     plt.plot(R_values, E_elec, label="electronic energy")
     plt.plot(R_values, E_total, label="total energy")
-    plt.axvline(1.0, linestyle="--", linewidth=1, label="R = 1")
+    plt.axvline(1.0, linestyle="--", linewidth=1, label=f"R = {R_slice}")
     plt.axhline(-0.5, linestyle="--", linewidth=1, label=r"$E_{\text{total}} = -0.5$")
     plt.xlabel("R [Bohr], nuclei at (-R,0,0), (R,0,0)")
     plt.ylabel("Energy [Hartree]")
-    plt.title("H₂⁺ energy curve")
+    plt.title("H₂ energy curve")
     plt.legend()
     plt.tight_layout()
-    if display:
-        plt.show()
+    plt.show( block=display )
 
-def main():
+def print_weight_diagnostics( mc_weights : pt.Tensor ):
+    w = mc_weights / mc_weights.sum()
+
+    print("N =", mc_weights.numel())
+    print("ESS =", 1.0 / pt.sum(w**2))
+    print("w max =", w.max())
+    print("w median =", w.median())
+    print("w max / median =", w.max() / w.median())
+
+    idx = pt.argsort(w, descending=True)
+    print("top 10 normalized weights:", w[idx[:10]])
+    print("top 10 cumulative mass:", pt.cumsum(w[idx[:10]], dim=0))
+
+def main( name : str ):
     dtype = pt.float64
     device = pt.device( 'cpu' )
 
-    model = load_model( )
-    loss_fn = EnergyLoss()
+    model = load_model( name, device=device, dtype=dtype )
+    loss_fn = EnergyLoss().to( dtype=dtype, device=device )
 
     # Plot the training convergence
-    plot_training_convergence( )
+    plot_training_convergence( name, display=False )
 
     # Plot energy curve
     gen = pt.Generator()
     r_cutoff = 5.0
-    _, r1_val, r2_val, mc_weights = sampleBatch( 1, n_x, r_cutoff, gen, device, dtype )
+    _, r1_val, r2_val, mc_weights = sampleBatchUniformBall( 1, n_x, r_cutoff, gen, device, dtype )
+    print_weight_diagnostics( mc_weights )
     plot_energy_curve_with_loss(
         model=model,
         loss_fn=loss_fn,
@@ -161,7 +174,7 @@ def main():
     R = pt.tensor([R_half], dtype=dtype, device=device)
 
     # For density plotting, use ONE-electron samples and ONE-electron weights.
-    r2_samples, r2_weights = sampleSingleElectron( N=50000, R_cutoff=r_cutoff, gen=gen, device=device, dtype=dtype )
+    r2_samples, r2_weights = sample_uniform_ball( N=50000, R_cutoff=r_cutoff, gen=gen, device=device, dtype=dtype )
     r2_samples = r2_samples.to(device=device, dtype=dtype)
     r2_weights = r2_weights.to(device=device, dtype=dtype)
     def log_psi_fn(R, r1, r2):
@@ -197,4 +210,5 @@ def main():
     plt.show()
 
 if __name__ == "__main__":
-    main()
+    name = "longer"
+    main( name )

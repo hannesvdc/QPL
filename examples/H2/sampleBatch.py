@@ -42,7 +42,6 @@ def sampleSingleElectron( N : int, R_cutoff : float, gen : pt.Generator, device 
 
     return xyz, mc_weights / mc_weights.mean()
 
-
 @pt.no_grad()
 def jointRejection( r1 : pt.Tensor, 
                     r2 : pt.Tensor, 
@@ -59,6 +58,23 @@ def jointRejection( r1 : pt.Tensor,
     mc_weights = mc1[inside_domain] * mc2[inside_domain]
 
     return r1, r2, mc_weights
+
+@pt.no_grad()
+def sample_uniform_ball( N: int, 
+                         R_cutoff: float, 
+                         gen: pt.Generator, 
+                         device: pt.device, 
+                         dtype: pt.dtype,
+                        ) -> tuple[pt.Tensor, pt.Tensor]:
+    x = pt.randn((N, 3), generator=gen, device=device, dtype=dtype)
+    x = x / pt.linalg.norm(x, dim=1, keepdim=True).clamp_min(1e-300)
+    u = pt.rand((N, 1), generator=gen, device=device, dtype=dtype)
+
+    r = R_cutoff * u.pow(1.0 / 3.0)
+    pts = r * x
+    weights = pt.ones( (N,), device=device, dtype=dtype)
+
+    return pts, weights
 
 @pt.no_grad()
 def sampleBatch( B : int, 
@@ -80,3 +96,22 @@ def sampleBatch( B : int,
     mc_weights /= mc_weights.mean()
 
     return R, r1, r2, mc_weights
+
+@pt.no_grad()
+def sampleBatchUniformBall( B: int, 
+                            N: int, 
+                            R_cutoff: float,
+                            gen: pt.Generator,
+                            device: pt.device,
+                            dtype: pt.dtype,
+                        ) -> tuple[pt.Tensor, pt.Tensor, pt.Tensor, pt.Tensor]:
+    log_R_min = math.log(0.1)
+    log_R_max = math.log(2.0)
+    log_R = log_R_min + (log_R_max - log_R_min) * pt.rand( (B, 1), generator=gen, device=device, dtype=dtype )
+    R = pt.exp(log_R).to(device)
+
+    r1, _ = sample_uniform_ball(N, R_cutoff, gen, device, dtype)
+    r2, _ = sample_uniform_ball(N, R_cutoff, gen, device, dtype)
+    weights = pt.ones((N,), device=device, dtype=dtype)
+
+    return R, r1, r2, weights
