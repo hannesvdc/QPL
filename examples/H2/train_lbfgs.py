@@ -37,12 +37,17 @@ gen = pt.Generator( device='cpu' )
 B = 256
 N_train = 100_000
 
+# Load the best adam model
+adam_model_name = 'anti'
+model_weights = pt.load( store_directory / f"{name}_best_model.pth", weights_only=True, map_location=device )
+
 # Setup the network
 R_cutoff = 5.0
 z = 64
 neurons_per_layer = [ 1+6*3, z, z, z, z, 1]
 model = QuantumNetwork( neurons_per_layer, R_cutoff )
 model.to( device=device, dtype=dtype )
+model.load_state_dict( model_weights )
 print('Number of Trainable Parameters: ', sum( [ p.numel() for p in model.parameters() if p.requires_grad ]))
 
 # Loss function.
