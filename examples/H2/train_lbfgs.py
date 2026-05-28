@@ -55,7 +55,7 @@ chunk_size = 4
 loss_fcn = EnergyLoss( chunk_size=chunk_size )
 
 # Setup the optimizer and learning rate scheduler
-optimizer = optim.LBFGS( model.parameters() )
+optimizer = optim.LBFGS( model.parameters(), line_search_fn='stronge_wolfe' )
 
 # Main training routine
 train_counter : List = []
