@@ -29,7 +29,7 @@ args = parser.parse_args()
 name = args.name
 
 # Do everything in double precision.
-dtype = pt.float32
+dtype = pt.float64
 device = pt.device( device_str )
 gen = pt.Generator( device='cpu' )
 
