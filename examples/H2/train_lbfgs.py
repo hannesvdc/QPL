@@ -39,7 +39,7 @@ N_train = 100_000
 
 # Load the best adam model
 adam_model_name = 'anti'
-model_weights = pt.load( store_directory / f"{name}_best_model.pth", weights_only=True, map_location=device )
+model_weights = pt.load( store_directory / f"{adam_model_name}_best_model.pth", weights_only=True, map_location=device )
 
 # Setup the network
 R_cutoff = 5.0
