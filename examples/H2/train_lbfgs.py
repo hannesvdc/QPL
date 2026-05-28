@@ -55,7 +55,6 @@ chunk_size = 4
 loss_fcn = EnergyLoss( chunk_size=chunk_size )
 
 # Setup the optimizer and learning rate scheduler
-lr = 1e-3
 optimizer = optim.LBFGS( model.parameters() )
 
 # Main training routine
@@ -99,7 +98,6 @@ try:
             f"\nEpoch {epoch:04d} "
             f"Loss: {train_loss:.5e}  "
             f"Grad: {loss_grad.item():.3e}  "
-            f"Lr: {optimizer.param_groups[0]['lr']:.3e}"
         )
         print(print_str)
 
