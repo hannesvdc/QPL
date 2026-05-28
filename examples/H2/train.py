@@ -28,7 +28,7 @@ parser.add_argument('--name', nargs='?', dest='name', required=True)
 args = parser.parse_args()
 name = args.name
 
-# Do everything on the CPU in double precision.
+# Do everything in double precision.
 dtype = pt.float64
 device = pt.device( device_str )
 gen = pt.Generator( device='cpu' )
@@ -72,7 +72,7 @@ def train_epoch( epoch : int ):
     optimizer.zero_grad( set_to_none=True )
 
     # Sample new training points every epoch.
-    R, r1, r2, mc_weights = sampleBatchUniformBall( B, N_train, R_cutoff, gen, device, dtype )
+    R, r1, r2, mc_weights = sampleBatchUniformBall( B, N_train, R_cutoff, antithetic=True, gen=gen, device=device, dtype=dtype )
         
     # Compute the loss (backward is called per-chunk inside loss_fcn)
     loss = loss_fcn( model, R, r1, r2, mc_weights, training=True )
@@ -98,7 +98,7 @@ def train_epoch( epoch : int ):
 
 # Validation function
 val_R = pt.tensor( [0.70055], dtype=dtype, device=device )
-_, val_r1, val_r2, val_mc_weights = sampleBatchUniformBall( B_val, N_validation, R_cutoff, gen, device, dtype )
+_, val_r1, val_r2, val_mc_weights = sampleBatchUniformBall( B_val, N_validation, R_cutoff, antithetic=True, gen=gen, device=device, dtype=dtype )
 validation_counter : List = []
 validation_losses : List = []
 def validate_epoch( epoch : int ) -> float:

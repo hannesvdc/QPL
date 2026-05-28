@@ -61,20 +61,32 @@ def jointRejection( r1 : pt.Tensor,
 
 @pt.no_grad()
 def sample_uniform_ball( N: int, 
-                         R_cutoff: float, 
+                         R_cutoff: float,
+                         *,
+                         antithetic : bool = False,
                          gen: pt.Generator, 
                          device: pt.device, 
                          dtype: pt.dtype,
                         ) -> tuple[pt.Tensor, pt.Tensor]:
-    x = pt.randn((N, 3), generator=gen)
+    # If antithetic=True, the returned number of samples is 8*N.
+    x = pt.randn((N, 3), generator=gen, device="cpu", dtype=dtype )
     x = x / pt.linalg.norm(x, dim=1, keepdim=True).clamp_min(1e-300)
-    u = pt.rand((N, 1), generator=gen, )
+    u = pt.rand( (N, 1), generator=gen, device="cpu", dtype=dtype )
 
     r = R_cutoff * u.pow(1.0 / 3.0)
     pts = r * x
-    weights = pt.ones( (N,) )
 
-    return pts.to(device=device,dtype=dtype), weights.to(device=device,dtype=dtype)
+    if antithetic:
+        # Reflections preserving the H2 geometry.
+        sx = pt.tensor( [[ 1.0,  1.0,  1.0]], device="cpu", dtype=dtype) # (1,3)
+        fx = pt.tensor( [[-1.0,  1.0,  1.0]], device="cpu", dtype=dtype)
+        fy = pt.tensor( [[ 1.0, -1.0,  1.0]], device="cpu", dtype=dtype)
+        fz = pt.tensor( [[ 1.0,  1.0, -1.0]], device="cpu", dtype=dtype)
+        pts = pt.cat( ( pts * sx, pts * fx, pts * fy, pts * fz), dim=0 )
+
+    weights = pt.ones((pts.shape[0],), device="cpu", dtype=dtype)
+
+    return pts.to(device=device), weights.to(device=device)
 
 @pt.no_grad()
 def sampleBatch( B : int, 
@@ -86,8 +98,8 @@ def sampleBatch( B : int,
                 ) -> Tuple[pt.Tensor, pt.Tensor, pt.Tensor, pt.Tensor]:
     log_R_min = math.log( 0.1 )
     log_R_max = math.log( 2.0 )
-    log_R = log_R_min + (log_R_max - log_R_min) * pt.rand( (B,1), generator=gen, device=device, dtype=dtype )
-    R = pt.exp( log_R )
+    log_R = log_R_min + (log_R_max - log_R_min) * pt.rand( (B,1), generator=gen, device="cpu", dtype=dtype )
+    R = pt.exp( log_R ).to( device=device )
 
     # Sample electrons
     r1, mc1 = sampleElectrons( N, gen, device, dtype )
@@ -101,17 +113,19 @@ def sampleBatch( B : int,
 def sampleBatchUniformBall( B: int, 
                             N: int, 
                             R_cutoff: float,
+                            *,
+                            antithetic : bool = False,
                             gen: pt.Generator,
                             device: pt.device,
                             dtype: pt.dtype,
                         ) -> tuple[pt.Tensor, pt.Tensor, pt.Tensor, pt.Tensor]:
     log_R_min = math.log(0.1)
     log_R_max = math.log(2.0)
-    log_R = log_R_min + (log_R_max - log_R_min) * pt.rand( (B, 1), generator=gen )
-    R = pt.exp(log_R).to(device=device, dtype=dtype)
+    log_R = log_R_min + (log_R_max - log_R_min) * pt.rand( (B, 1), generator=gen, device="cpu", dtype=dtype )
+    R = pt.exp(log_R).to(device=device)
 
-    r1, _ = sample_uniform_ball(N, R_cutoff, gen, device, dtype)
-    r2, _ = sample_uniform_ball(N, R_cutoff, gen, device, dtype)
-    weights = pt.ones((N,), device=device, dtype=dtype)
+    r1, _ = sample_uniform_ball(N, R_cutoff, antithetic=antithetic, gen=gen, device=device, dtype=dtype)
+    r2, _ = sample_uniform_ball(N, R_cutoff, antithetic=antithetic, gen=gen, device=device, dtype=dtype)
+    weights = pt.ones((r1.shape[0],), device=device, dtype=dtype)
 
     return R, r1, r2, weights
