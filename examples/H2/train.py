@@ -48,7 +48,7 @@ model.to( device=device, dtype=dtype )
 print('Number of Trainable Parameters: ', sum( [ p.numel() for p in model.parameters() if p.requires_grad ]))
 
 # Loss function.
-chunk_size = 4
+chunk_size = 1
 loss_fcn = EnergyLoss( chunk_size=chunk_size )
 
 # Setup the optimizer and learning rate scheduler
@@ -73,6 +73,8 @@ def train_epoch( epoch : int ):
 
     # Sample new training points every epoch.
     R, r1, r2, mc_weights = sampleBatchUniformBall( B, N_train, R_cutoff, antithetic=True, gen=gen, device=device, dtype=dtype )
+    R.requires_grad_( False )
+    mc_weights.requires_grad_( False )
         
     # Compute the loss (backward is called per-chunk inside loss_fcn)
     loss = loss_fcn( model, R, r1, r2, mc_weights, training=True )
@@ -97,12 +99,17 @@ def train_epoch( epoch : int ):
     print(print_str)
 
 # Validation function
-val_R = pt.tensor( [0.70055], dtype=dtype, device=device )
+val_R = pt.tensor( [0.70055], dtype=dtype, device=device, requires_grad=False )
 validation_counter : List = []
 validation_losses : List = []
 def validate_epoch( epoch : int ) -> float:
+    model.eval()
+
     # Resample validation electrons and weights to reduce effect of Monte Carlo noise.
     _, val_r1, val_r2, val_mc_weights = sampleBatchUniformBall( B_val, N_validation, R_cutoff, antithetic=True, gen=gen, device=device, dtype=dtype )
+    val_r1.requires_grad_( False )
+    val_r2.requires_grad_( False )
+    val_mc_weights.requires_grad_( False )
 
     # Compute the loss (no gradients needed for validation)
     total_energy = loss_fcn( model, val_R, val_r1, val_r2, val_mc_weights, training=False )
