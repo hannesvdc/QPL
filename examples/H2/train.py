@@ -98,10 +98,11 @@ def train_epoch( epoch : int ):
 
 # Validation function
 val_R = pt.tensor( [0.70055], dtype=dtype, device=device )
-_, val_r1, val_r2, val_mc_weights = sampleBatchUniformBall( B_val, N_validation, R_cutoff, antithetic=True, gen=gen, device=device, dtype=dtype )
 validation_counter : List = []
 validation_losses : List = []
 def validate_epoch( epoch : int ) -> float:
+    # Resample validation electrons and weights to reduce effect of Monte Carlo noise.
+    _, val_r1, val_r2, val_mc_weights = sampleBatchUniformBall( B_val, N_validation, R_cutoff, antithetic=True, gen=gen, device=device, dtype=dtype )
 
     # Compute the loss (no gradients needed for validation)
     total_energy = loss_fcn( model, val_R, val_r1, val_r2, val_mc_weights, training=False )
