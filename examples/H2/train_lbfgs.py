@@ -125,8 +125,8 @@ train_data = np.stack( (train_counter, train_losses, train_grads), axis=1) # typ
 validation_counter = np.array( validation_counter ) # type: ignore
 validation_losses = np.array( validation_losses ) # type: ignore
 validation_data = np.stack( (validation_counter, validation_losses), axis=1) # type: ignore
-np.save( store_directory / f"{name}_train_data.npy", train_data)
-np.save( store_directory / f"{name}_validation_data.npy", validation_data)
+np.save( store_directory / f"{name}_train_data_lbfgs.npy", train_data)
+np.save( store_directory / f"{name}_validation_data_lbfgs.npy", validation_data)
 
 # Make a plot of the training progress
 fig = plt.figure()
