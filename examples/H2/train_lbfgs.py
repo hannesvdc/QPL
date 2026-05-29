@@ -36,10 +36,12 @@ gen = pt.Generator( device='cpu' )
 # Create a training and validation dataset
 B = 256
 N_train = 100_000
+B_val = 10
+N_validation = 100_000
 
 # Load the best adam model
 adam_model_name = 'anti'
-model_weights = pt.load( store_directory / f"{adam_model_name}_best_model.pth", weights_only=True, map_location=device )
+model_weights = pt.load( store_directory / f"{adam_model_name}_model_adam.pth", weights_only=True, map_location=device )
 
 # Setup the network
 R_cutoff = 5.0
@@ -51,7 +53,7 @@ model.load_state_dict( model_weights )
 print('Number of Trainable Parameters: ', sum( [ p.numel() for p in model.parameters() if p.requires_grad ]))
 
 # Loss function.
-chunk_size = 4
+chunk_size = 1
 loss_fcn = EnergyLoss( chunk_size=chunk_size )
 
 # Setup the optimizer and learning rate scheduler
@@ -74,10 +76,10 @@ def closure( ) -> pt.Tensor:
     return loss
 
 # Also some validation metrics
+B_val = 10
 validation_counter : List = []
 validation_losses : List = []
-val_R = pt.tensor( [0.70055], dtype=dtype, device=device )
-_, val_r1, val_r2, val_mc_weights = sampleBatchUniformBall( 1, N_train, R_cutoff, antithetic=True, gen=gen, device=device, dtype=dtype )
+val_R = 0.70055 * pt.ones( (B_val,), dtype=dtype, device=device)
 
 # Main training loop
 best_val_loss = math.inf
@@ -101,19 +103,16 @@ try:
         )
         print(print_str)
 
-        val_loss = loss_fcn( model, val_R, val_r1, val_r2, val_mc_weights, training=False )
-        total_energy = float( val_loss.detach().cpu() )
-        electron_energy = total_energy - 1.0 / (2.0 * float(val_R.item()) )
-        print_str = f'\nValidation Epoch {epoch:03d}: \tElectron Energy: {electron_energy:.5e} \tTotal Energy {total_energy:.5e}'
+        # Independent and random validation samples
+        _, val_r1, val_r2, val_mc_weights = sampleBatchUniformBall( B_val, N_validation, R_cutoff, antithetic=True, gen=gen, device=device, dtype=dtype )
+        total_energy_mean = loss_fcn( model, val_R, val_r1, val_r2, val_mc_weights, training=False )
+        electron_energy = total_energy_mean - 1.0 / (2.0 * float(val_R.item()) )
+        print_str = f'\nValidation Epoch {epoch:03d}: \tElectron Energy: {electron_energy:.5e} \tTotal Energy {total_energy_mean:.5e}'
         print( print_str )
 
         # Store the current model and optimizer weights.
         pt.save( model.state_dict(), store_directory / f"{name}_model_lbfgs.pth")
         pt.save( optimizer.state_dict(), store_directory / f"{name}_optimizer_lbfgs.pth")
-        if total_energy < best_val_loss:
-            best_val_loss = total_energy
-            print("Storing the best validation model.")
-            pt.save( model.state_dict(), store_directory / f"{name}_best_model_lbfgs.pth")
 except KeyboardInterrupt:
     print( 'Aborting Training.')
     pass

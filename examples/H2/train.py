@@ -36,7 +36,7 @@ gen = pt.Generator( device='cpu' )
 # Create a training and validation dataset
 B = 256
 N_train = 10_000
-B_val = 1
+B_val = 10
 N_validation = 100_000
 
 # Setup the network
@@ -99,7 +99,7 @@ def train_epoch( epoch : int ):
     print(print_str)
 
 # Validation function
-val_R = pt.tensor( [0.70055], dtype=dtype, device=device, requires_grad=False )
+val_R = 0.70055 * pt.ones( (B_val,), dtype=dtype, device=device)
 validation_counter : List = []
 validation_losses : List = []
 def validate_epoch( epoch : int ) -> float:
@@ -112,25 +112,24 @@ def validate_epoch( epoch : int ) -> float:
     val_mc_weights.requires_grad_( False )
 
     # Compute the loss (no gradients needed for validation)
-    total_energy = loss_fcn( model, val_R, val_r1, val_r2, val_mc_weights, training=False )
+    total_energy_mean = loss_fcn( model, val_R, val_r1, val_r2, val_mc_weights, training=False )
 
     # Log some interesting info
     proton_energy = 1.0 / (2.0 * float(val_R.item()) )
-    electron_energy = total_energy - proton_energy
+    electron_energy = total_energy_mean - proton_energy
 
     # Store
     validation_counter.append( epoch )
-    validation_losses.append( float(total_energy) )
+    validation_losses.append( float(total_energy_mean) )
 
     # Print and done.
-    print_str = f'\nValidation Epoch {epoch:03d}: \tElectron Energy: {electron_energy:.5e} \tTotal Energy {total_energy:.5e}'
+    print_str = f'\nValidation Epoch {epoch:03d}: \tAverage Total Energy {total_energy_mean:.5e} \tAverage Electron Energy: {electron_energy:.5e}'
     print(print_str)
 
-    return total_energy
+    return total_energy_mean
 
 # Main training loop
 n_epochs = step_size * n_steps
-best_val_loss = math.inf
 print( validate_epoch( 0 ) )
 try:
     for epoch in range( 1, n_epochs+1 ):
@@ -145,10 +144,6 @@ try:
         # Store the current model and optimizer weights.
         pt.save( model.state_dict(), store_directory / f"{name}_model_adam.pth")
         pt.save( optimizer.state_dict(), store_directory / f"{name}_optimizer_adam.pth")
-        if val_loss < best_val_loss:
-            best_val_loss = val_loss
-            print("Storing the best model.")
-            pt.save( model.state_dict(), store_directory / f"{name}_best_model.pth")
 except KeyboardInterrupt:
     print( 'Aborting Training.')
     pass
