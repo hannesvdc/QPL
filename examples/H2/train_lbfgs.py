@@ -79,7 +79,8 @@ def closure( ) -> pt.Tensor:
 B_val = 10
 validation_counter : List = []
 validation_losses : List = []
-val_R = 0.70055 * pt.ones( (B_val,), dtype=dtype, device=device)
+val_R_float = 0.70055
+val_R = val_R_float * pt.ones( (B_val,), dtype=dtype, device=device)
 
 # Main training loop
 best_val_loss = math.inf
@@ -106,7 +107,7 @@ try:
         # Independent and random validation samples
         _, val_r1, val_r2, val_mc_weights = sampleBatchUniformBall( B_val, N_validation, R_cutoff, antithetic=True, gen=gen, device=device, dtype=dtype )
         total_energy_mean = loss_fcn( model, val_R, val_r1, val_r2, val_mc_weights, training=False )
-        electron_energy = total_energy_mean - 1.0 / (2.0 * float(val_R.item()) )
+        electron_energy = total_energy_mean - 1.0 / (2.0 * val_R_float)
         print_str = f'\nValidation Epoch {epoch:03d}: \tElectron Energy: {electron_energy:.5e} \tTotal Energy {total_energy_mean:.5e}'
         print( print_str )
 

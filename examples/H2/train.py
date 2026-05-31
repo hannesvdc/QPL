@@ -99,7 +99,8 @@ def train_epoch( epoch : int ):
     print(print_str)
 
 # Validation function
-val_R = 0.70055 * pt.ones( (B_val,), dtype=dtype, device=device)
+val_R_float = 0.70055
+val_R = val_R_float * pt.ones( (B_val,), dtype=dtype, device=device)
 validation_counter : List = []
 validation_losses : List = []
 def validate_epoch( epoch : int ) -> float:
@@ -115,7 +116,7 @@ def validate_epoch( epoch : int ) -> float:
     total_energy_mean = loss_fcn( model, val_R, val_r1, val_r2, val_mc_weights, training=False )
 
     # Log some interesting info
-    proton_energy = 1.0 / (2.0 * float(val_R.item()) )
+    proton_energy = 1.0 / (2.0 * val_R_float )
     electron_energy = total_energy_mean - proton_energy
 
     # Store
@@ -146,18 +147,17 @@ try:
         pt.save( optimizer.state_dict(), store_directory / f"{name}_optimizer_adam.pth")
 except KeyboardInterrupt:
     print( 'Aborting Training.')
-    pass
-
-# Make numpy arrays from the training data
-train_counter = np.array( train_counter ) # type: ignore
-train_losses = np.array( train_losses ) # type: ignore
-train_grads = np.array( train_grads ) # type: ignore
-train_data = np.stack( (train_counter, train_losses, train_grads), axis=1) # type: ignore
-validation_counter = np.array( validation_counter ) # type: ignore
-validation_losses = np.array( validation_losses ) # type: ignore
-validation_data = np.stack( (validation_counter, validation_losses), axis=1) # type: ignore
-np.save( store_directory / f"{name}_train_data.npy", train_data)
-np.save( store_directory / f"{name}_validation_data.npy", validation_data)
+finally:
+    # Make numpy arrays from the training data
+    train_counter = np.array( train_counter ) # type: ignore
+    train_losses = np.array( train_losses ) # type: ignore
+    train_grads = np.array( train_grads ) # type: ignore
+    train_data = np.stack( (train_counter, train_losses, train_grads), axis=1) # type: ignore
+    validation_counter = np.array( validation_counter ) # type: ignore
+    validation_losses = np.array( validation_losses ) # type: ignore
+    validation_data = np.stack( (validation_counter, validation_losses), axis=1) # type: ignore
+    np.save( store_directory / f"{name}_train_data.npy", train_data)
+    np.save( store_directory / f"{name}_validation_data.npy", validation_data)
 
 # Make a plot of the training progress
 fig = plt.figure()

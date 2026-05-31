@@ -31,7 +31,7 @@ device_str = os.getenv( "DEVICE", "cpu" )
 r_cutoff = 5.0
 
 # Wavefunction slice plot
-R_slice = 0.070055
+R_slice = 0.70055
 x_min = -5.0
 x_max = 5.0
 n_x = 100_000
@@ -45,7 +45,7 @@ def load_model( name : str, device : pt.device, dtype : pt.dtype = pt.float64 ) 
     z = 64
     neurons_per_layer = [ 19, z, z, z, z, 1]
     model = QuantumNetwork( neurons_per_layer, r_cutoff )
-    model.load_state_dict( pt.load( store_directory  / f'{name}_best_model.pth', weights_only=True, map_location=device ) )
+    model.load_state_dict( pt.load( store_directory  / f'{name}_model_adam.pth', weights_only=True, map_location=device ) )
     model = model.to( device=device, dtype=dtype )
     return model
 
@@ -92,16 +92,18 @@ def plot_energy_curve_with_loss(
         autograd to compute grad_x psi for the kinetic term.
     """
     dtype = r1_val.dtype
+    device = r1_val.device
     if logspace:
         R_values = pt.exp( pt.linspace( math.log(R_min), math.log(R_max), n_R, dtype=dtype) )
     else:
         R_values = pt.linspace(R_min, R_max, n_R, dtype=dtype )
 
+    B_val = 10
     E_elec = []
     for idx in range(len(R_values)):
-        R = pt.tensor( [R_values[idx]], dtype=dtype )
+        R = R_values[idx] * pt.ones( (B_val,), dtype=dtype, device=device )
         en_total = loss_fn( model, R, r1_val, r2_val, mc_weights_val, training=False )  # (n_R,)
-        en = en_total - 1.0 / (2.0 * R)
+        en = en_total - 1.0 / (2.0 * R_values[idx])
         E_elec.append( float(en) )
     E_elec = pt.tensor( E_elec )
     E_total = E_elec + 1.0 / (2.0 * R_values)
@@ -154,7 +156,7 @@ def main( name : str ):
     # Plot energy curve
     gen = pt.Generator()
     r_cutoff = 5.0
-    _, r1_val, r2_val, mc_weights = sampleBatchUniformBall( 1, n_x, r_cutoff, gen, device, dtype )
+    _, r1_val, r2_val, mc_weights = sampleBatchUniformBall( 1, n_x, r_cutoff, gen=gen, device=device, dtype=dtype )
     print_weight_diagnostics( mc_weights )
     plot_energy_curve_with_loss(
         model=model,
@@ -210,5 +212,5 @@ def main( name : str ):
     plt.show()
 
 if __name__ == "__main__":
-    name = "longer"
+    name = "anti_random_val"
     main( name )
